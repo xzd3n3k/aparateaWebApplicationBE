@@ -50,6 +50,7 @@ class UserRegistration(User):
     last_name: str
     password: str
     phone: str or None = None
+    company_id: int or None = None
 
 
 class UserUpdate(UserRegistration):
@@ -151,13 +152,13 @@ def insert_company(connection, name, email, state=None, town=None, street=None, 
     return False
 
 
-def insert_account(connection, email, password, first_name, last_name, username=None, phone=None, disabled=False):
+def insert_account(connection, email, password, first_name, last_name, username=None, phone=None, disabled=False, company_id=None):
     cursor = connection.cursor()
 
     if not user_exists(cursor, email):
 
-        insert_query = "INSERT INTO accounts (email, password, first_name, last_name, username, phone, disabled) VALUES (%s, %s, %s, %s, %s, %s, %s)"
-        data_to_insert = (email, hash_password(password), first_name, last_name, username, phone, disabled)
+        insert_query = "INSERT INTO accounts (email, password, first_name, last_name, username, phone, disabled, company_id) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)"
+        data_to_insert = (email, hash_password(password), first_name, last_name, username, phone, disabled, company_id)
         cursor.execute(insert_query, data_to_insert)
         connection.commit()
         cursor.close()
@@ -172,10 +173,28 @@ def insert_account(connection, email, password, first_name, last_name, username=
 def get_company_by_id(connection, id):
     cursor = connection.cursor()
     cursor.execute('SELECT * FROM companies WHERE id = %s', (id, ))
-    result = cursor.fetchone()
+    record = cursor.fetchone()
     cursor.close()
 
-    return result
+
+    if record:
+        return {
+            "id": record[0],
+            "name": record[1],
+            "state": record[2],
+            "town": record[3],
+            "street": record[4],
+            "cislo_popisne": record[5],
+            "psc": record[6],
+            "phone": record[7],
+            "email": record[8],
+            "ic": record[9],
+            "dic": record[10],
+            "executive": record[11],
+            "note": record[12]
+        }
+
+    return None
 
 
 def get_all_sharpening_companies(connection):
@@ -325,7 +344,7 @@ def delete_comps(ids):
     connection = estabilish_connection(database)
 
     for id in ids:
-        delete_sharpening_comp(connection, id)
+        delete_comp(connection, id)
 
     close_connection(connection)
 
@@ -343,26 +362,26 @@ def delete_accounts(ids):
     return
 
 
-def edit_account(connection, id, email, first_name, last_name, username=None, phone=None, password=None):
+def edit_account(connection, id, email, first_name, last_name, username=None, phone=None, password=None, company_id=None):
 
     cursor = connection.cursor()
     if password is None or password == '':
         sql_query = """
                 UPDATE accounts
-                SET username = %s, email = %s, first_name = %s, last_name = %s, phone = %s
+                SET username = %s, email = %s, first_name = %s, last_name = %s, phone = %s, company_id = %s
                 WHERE id = %s
             """
 
-        cursor.execute(sql_query, (username, email, first_name, last_name, phone, id))
+        cursor.execute(sql_query, (username, email, first_name, last_name, phone, company_id, id))
 
     else:
         sql_query = """
                 UPDATE accounts
-                SET username = %s, email = %s, first_name = %s, last_name = %s, phone = %s, password = %s
+                SET username = %s, email = %s, first_name = %s, last_name = %s, phone = %s, company_id = %s, password = %s
                 WHERE id = %s
             """
 
-        cursor.execute(sql_query, (username, email, first_name, last_name, phone, hash_password(password), id))
+        cursor.execute(sql_query, (username, email, first_name, last_name, phone, hash_password(password), company_id, id))
 
     connection.commit()
     cursor.close()
@@ -485,8 +504,10 @@ async def register(usr: UserRegistration, current_user: User = Depends(get_curre
         usr.phone = None
     if usr.username == '':
         usr.phone = None
+    if usr.company_id == 0:
+        usr.company_id = None
 
-    account_inserted = insert_account(connection, email=usr.email, password=usr.password, first_name=usr.first_name, last_name=usr.last_name, username=usr.username, phone=usr.phone)
+    account_inserted = insert_account(connection, email=usr.email, password=usr.password, first_name=usr.first_name, last_name=usr.last_name, username=usr.username, phone=usr.phone, company_id=usr.company_id)
     close_connection(connection)
     if not account_inserted:
         return 'User already exists!'
@@ -672,6 +693,8 @@ async def edit_user_account(id: int, usr: UserUpdate, current_user: User = Depen
         usr.phone = None
     if usr.username == '':
         usr.username = None
+    if usr.company_id == 0:
+        usr.company_id = None
     if usr.email == '' or usr.first_name == '' or usr.last_name == '':
         close_connection(connection)
         return HTTPException(status_code=status.HTTP_206_PARTIAL_CONTENT, detail="Some fields that are meant to be filled are empty!")
@@ -686,7 +709,7 @@ async def edit_user_account(id: int, usr: UserUpdate, current_user: User = Depen
 
     cursor.close()
 
-    result = edit_account(connection, id=id, email=usr.email, first_name=usr.first_name, last_name=usr.last_name, username=usr.username, phone=usr.phone, password=usr.password)
+    result = edit_account(connection, id=id, email=usr.email, first_name=usr.first_name, last_name=usr.last_name, username=usr.username, phone=usr.phone, password=usr.password, company_id=usr.company_id)
 
     close_connection(connection)
 
