@@ -72,8 +72,8 @@ app.add_middleware(
 )
 
 
-def estabilish_connection(database):
-    connection = mysql.connector.connect(host=host, user=user, password=psw, db=database)
+def estabilish_connection(db_name):
+    connection = mysql.connector.connect(host=host, user=user, password=psw, db=db_name)
     if connection.is_connected():
         return connection
     else:
@@ -135,11 +135,13 @@ def insert_sharpening_company(connection, name, note=None):
     return False
 
 
-def insert_company(connection, name, email, state=None, town=None, street=None, cislo_popisne=None, psc=None, phone=None, ic=None, dic=None, executive=None, note=None):
+def insert_company(connection, name, email, state=None, town=None, street=None, cislo_popisne=None, psc=None,
+                   phone=None, ic=None, dic=None, executive=None, note=None):
     cursor = connection.cursor()
 
     if not company_exists(cursor, name):
-        insert_query = "INSERT INTO companies (name, state, town, street, cislo_popisne, psc, phone, email, ic, dic, executive, note) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
+        insert_query = ("INSERT INTO companies (name, state, town, street, cislo_popisne, psc, phone, email, ic, dic,"
+                        "executive, note) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)")
         data_to_insert = (name, state, town, street, cislo_popisne, psc, phone, email, ic, dic, executive, note)
         cursor.execute(insert_query, data_to_insert)
         connection.commit()
@@ -152,12 +154,14 @@ def insert_company(connection, name, email, state=None, town=None, street=None, 
     return False
 
 
-def insert_account(connection, email, password, first_name, last_name, username=None, phone=None, disabled=False, company_id=None):
+def insert_account(connection, email, password, first_name, last_name, username=None, phone=None, disabled=False,
+                   company_id=None):
     cursor = connection.cursor()
 
     if not user_exists(cursor, email):
 
-        insert_query = "INSERT INTO accounts (email, password, first_name, last_name, username, phone, disabled, company_id) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)"
+        insert_query = ("INSERT INTO accounts (email, password, first_name, last_name, username, phone, disabled,"
+                        "company_id) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)")
         data_to_insert = (email, hash_password(password), first_name, last_name, username, phone, disabled, company_id)
         cursor.execute(insert_query, data_to_insert)
         connection.commit()
@@ -170,12 +174,11 @@ def insert_account(connection, email, password, first_name, last_name, username=
     return False
 
 
-def get_company_by_id(connection, id):
+def get_company_by_id(connection, identificator):
     cursor = connection.cursor()
-    cursor.execute('SELECT * FROM companies WHERE id = %s', (id, ))
+    cursor.execute('SELECT * FROM companies WHERE id = %s', (identificator, ))
     record = cursor.fetchone()
     cursor.close()
-
 
     if record:
         return {
@@ -216,7 +219,7 @@ def get_all_sharpening_companies(connection):
     return result
 
 
-def edit_sharpening_comp(connection, id, name, note=None):
+def edit_sharpening_comp(connection, identificator, name, note=None):
     cursor = connection.cursor()
 
     sql_query = """
@@ -225,7 +228,7 @@ def edit_sharpening_comp(connection, id, name, note=None):
                WHERE id = %s
            """
 
-    cursor.execute(sql_query, (name, note, id))
+    cursor.execute(sql_query, (name, note, identificator))
 
     connection.commit()
     cursor.close()
@@ -233,16 +236,19 @@ def edit_sharpening_comp(connection, id, name, note=None):
     return
 
 
-def edit_comp(connection, id, name, state=None, town=None, street=None, cisloPopisne=None, psc=None, phone=None, email=None, ic=None, dic=None, executive=None, note=None):
+def edit_comp(connection, identificator, name, state=None, town=None, street=None, cislo_popisne=None, psc=None,
+              phone=None, email=None, ic=None, dic=None, executive=None, note=None):
     cursor = connection.cursor()
 
     sql_query = """
                UPDATE companies
-               SET name = %s, town = %s, street = %s, cislo_popisne = %s, psc = %s, phone = %s, email = %s, ic = %s, dic = %s, executive = %s, note = %s
+               SET name = %s, town = %s, street = %s, state = %s, cislo_popisne = %s, psc = %s, phone = %s, email = %s,
+               ic = %s, dic = %s, executive = %s, note = %s
                WHERE id = %s
            """
 
-    cursor.execute(sql_query, (name, town, street, cisloPopisne, psc, phone, email, ic, dic, executive, note, id))
+    cursor.execute(sql_query, (name, town, street, state, cislo_popisne, psc, phone, email, ic, dic, executive,
+                               note, identificator))
 
     connection.commit()
     cursor.close()
@@ -302,18 +308,18 @@ def get_all_accounts(connection):
     return result
 
 
-def delete_account(connection, id):
+def delete_account(connection, identificator):
     cursor = connection.cursor()
-    cursor.execute(f'DELETE FROM accounts WHERE id = {id}')
+    cursor.execute(f'DELETE FROM accounts WHERE id = {identificator}')
     connection.commit()
     cursor.close()
 
     return
 
 
-def delete_sharpening_comp(connection, id):
+def delete_sharpening_comp(connection, identificator):
     cursor = connection.cursor()
-    cursor.execute(f'DELETE FROM sharpeningCompanies WHERE id = {id}')
+    cursor.execute(f'DELETE FROM sharpeningCompanies WHERE id = {identificator}')
     connection.commit()
     cursor.close()
 
@@ -323,17 +329,17 @@ def delete_sharpening_comp(connection, id):
 def delete_sharpening_comps(ids):
     connection = estabilish_connection(database)
 
-    for id in ids:
-        delete_sharpening_comp(connection, id)
+    for identificator in ids:
+        delete_sharpening_comp(connection, identificator)
 
     close_connection(connection)
 
     return
 
 
-def delete_comp(connection, id):
+def delete_comp(connection, identificator):
     cursor = connection.cursor()
-    cursor.execute(f'DELETE FROM companies WHERE id = {id}')
+    cursor.execute(f'DELETE FROM companies WHERE id = {identificator}')
     connection.commit()
     cursor.close()
 
@@ -343,8 +349,8 @@ def delete_comp(connection, id):
 def delete_comps(ids):
     connection = estabilish_connection(database)
 
-    for id in ids:
-        delete_comp(connection, id)
+    for identificator in ids:
+        delete_comp(connection, identificator)
 
     close_connection(connection)
 
@@ -354,15 +360,16 @@ def delete_comps(ids):
 def delete_accounts(ids):
     connection = estabilish_connection(database)
 
-    for id in ids:
-        delete_account(connection, id)
+    for identificator in ids:
+        delete_account(connection, identificator)
 
     close_connection(connection)
 
     return
 
 
-def edit_account(connection, id, email, first_name, last_name, username=None, phone=None, password=None, company_id=None):
+def edit_account(connection, identificator, email, first_name, last_name, username=None, phone=None, password=None,
+                 company_id=None):
 
     cursor = connection.cursor()
     if password is None or password == '':
@@ -372,16 +379,18 @@ def edit_account(connection, id, email, first_name, last_name, username=None, ph
                 WHERE id = %s
             """
 
-        cursor.execute(sql_query, (username, email, first_name, last_name, phone, company_id, id))
+        cursor.execute(sql_query, (username, email, first_name, last_name, phone, company_id, identificator))
 
     else:
         sql_query = """
                 UPDATE accounts
-                SET username = %s, email = %s, first_name = %s, last_name = %s, phone = %s, company_id = %s, password = %s
+                SET username = %s, email = %s, first_name = %s, last_name = %s, phone = %s, company_id = %s,
+                password = %s
                 WHERE id = %s
             """
 
-        cursor.execute(sql_query, (username, email, first_name, last_name, phone, hash_password(password), company_id, id))
+        cursor.execute(sql_query, (username, email, first_name, last_name, phone, hash_password(password), company_id,
+                                   identificator))
 
     connection.commit()
     cursor.close()
@@ -415,18 +424,18 @@ def get_user(db, email: str):
 
 
 def authenticate_user(db, email: str, password: str):
-    user = get_user(db, email)
+    user_db = get_user(db, email)
 
-    if not user:
+    if not user_db:
         return False
 
-    if not verify_password(password, user.password):
+    if not verify_password(password, user_db.password):
         return False
 
-    if user.disabled:
+    if user_db.disabled:
         return 'disabled'
 
-    return user
+    return user_db
 
 
 def create_access_token(data: dict, expires_delta: timedelta):
@@ -443,7 +452,9 @@ def create_access_token(data: dict, expires_delta: timedelta):
 
 
 async def get_current_user(token: str = Depends(oauth2_scheme)):
-    credential_exception = HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Could not validate credentials", headers={"WWW-Authenticate": "Bearer"})
+    credential_exception = HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
+                                         detail="Could not validate credentials",
+                                         headers={"WWW-Authenticate": "Bearer"})
 
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
@@ -457,12 +468,12 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
     except JWTError:
         raise credential_exception
 
-    user = get_user(database, email=token_data.email)
+    user_db = get_user(database, email=token_data.email)
 
-    if user is None:
+    if user_db is None:
         raise credential_exception
 
-    return user
+    return user_db
 
 
 async def get_current_active_user(current_user: UserInDB = Depends(get_current_user)):
@@ -507,7 +518,9 @@ async def register(usr: UserRegistration, current_user: User = Depends(get_curre
     if usr.company_id == 0:
         usr.company_id = None
 
-    account_inserted = insert_account(connection, email=usr.email, password=usr.password, first_name=usr.first_name, last_name=usr.last_name, username=usr.username, phone=usr.phone, company_id=usr.company_id)
+    account_inserted = insert_account(connection, email=usr.email, password=usr.password, first_name=usr.first_name,
+                                      last_name=usr.last_name, username=usr.username, phone=usr.phone,
+                                      company_id=usr.company_id)
     close_connection(connection)
     if not account_inserted:
         return 'User already exists!'
@@ -517,16 +530,17 @@ async def register(usr: UserRegistration, current_user: User = Depends(get_curre
 
 @app.post('/login', response_model=Token)
 async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
-    user = authenticate_user(database, form_data.username, form_data.password)
+    user_authenticated = authenticate_user(database, form_data.username, form_data.password)
 
-    if user == 'disabled':
+    if user_authenticated == 'disabled':
         raise HTTPException(status_code=status.HTTP_423_LOCKED, detail="Account not active")
 
-    if not user:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect credentials", headers={"WWW-Authenticate": "Bearer"})
+    if not user_authenticated:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect credentials",
+                            headers={"WWW-Authenticate": "Bearer"})
 
     access_token_expires = timedelta(minutes=30)
-    access_token = create_access_token(data={"sub": user.email}, expires_delta=access_token_expires)
+    access_token = create_access_token(data={"sub": user_authenticated.email}, expires_delta=access_token_expires)
 
     return {"access_token": access_token, "token_type": "bearer", "expires": access_token_expires+datetime.utcnow()}
 
@@ -541,62 +555,66 @@ async def get_sharpening_companies(current_user: User = Depends(get_current_acti
 
 
 @app.delete("/deleteSharpeningCompany")
-async def delete_sharpening_company(id: int, current_user: User = Depends(get_current_active_user)):
+async def delete_sharpening_company(identificator: int, current_user: User = Depends(get_current_active_user)):
     connection = estabilish_connection(database)
-    result = delete_sharpening_comp(connection, id)
+    delete_sharpening_comp(connection, identificator)
     close_connection(connection)
 
-    return result
+    return
 
 
 @app.delete("/deleteSharpeningCompanies")
 async def delete_sharpening_companies(ids: list[int], current_user: User = Depends(get_current_active_user)):
-    result = delete_sharpening_comps(ids)
+    delete_sharpening_comps(ids)
 
-    return result
+    return
 
 
 @app.post("/editSharpeningCompany")
-async def edit_sharpening_company(id: int, sharpeningCompany: SharpeningCompany, current_user: User = Depends(get_current_active_user)):
+async def edit_sharpening_company(identificator: int, sharpening_company: SharpeningCompany,
+                                  current_user: User = Depends(get_current_active_user)):
     connection = estabilish_connection(database)
-    if sharpeningCompany.note == '':
-        sharpeningCompany.note = None
+    if sharpening_company.note == '':
+        sharpening_company.note = None
 
-    if sharpeningCompany.name == '' or sharpeningCompany.name is None:
+    if sharpening_company.name == '' or sharpening_company.name is None:
         close_connection(connection)
-        return HTTPException(status_code=status.HTTP_206_PARTIAL_CONTENT, detail="Some fields that are meant to be filled are empty!")
+        return HTTPException(status_code=status.HTTP_206_PARTIAL_CONTENT,
+                             detail="Some fields that are meant to be filled are empty!")
 
     cursor = connection.cursor()
-    company = sharpening_company_exists(cursor, sharpeningCompany.name)
+    company = sharpening_company_exists(cursor, sharpening_company.name)
 
-    if company and company[0] != id:
+    if company and company[0] != identificator:
         cursor.close()
         close_connection(connection)
-        return HTTPException(status_code=status.HTTP_304_NOT_MODIFIED, detail="Sharpening company with this name already exists")
+        return HTTPException(status_code=status.HTTP_304_NOT_MODIFIED,
+                             detail="Sharpening company with this name already exists")
 
     cursor.close()
 
-    result = edit_sharpening_comp(connection, id=id, name=sharpeningCompany.name, note=sharpeningCompany.note)
+    edit_sharpening_comp(connection, identificator=identificator, name=sharpening_company.name,
+                         note=sharpening_company.note)
 
     close_connection(connection)
 
-    return result
+    return
 
 
 @app.delete("/deleteCompany")
-async def delete_company(id: int, current_user: User = Depends(get_current_active_user)):
+async def delete_company(identificator: int, current_user: User = Depends(get_current_active_user)):
     connection = estabilish_connection(database)
-    result = delete_comp(connection, id)
+    delete_comp(connection, identificator)
     close_connection(connection)
 
-    return result
+    return
 
 
 @app.delete("/deleteCompanies")
 async def delete_companies(ids: list[int], current_user: User = Depends(get_current_active_user)):
-    result = delete_comps(ids)
+    delete_comps(ids)
 
-    return result
+    return
 
 
 @app.get("/companies")
@@ -621,9 +639,13 @@ async def create_company(company: Company, current_user: User = Depends(get_curr
 
     if company.email is None or company.name is None:
         close_connection(connection)
-        return HTTPException(status_code=status.HTTP_206_PARTIAL_CONTENT, detail="Some fields that are meant to be filled are empty!")
+        return HTTPException(status_code=status.HTTP_206_PARTIAL_CONTENT,
+                             detail="Some fields that are meant to be filled are empty!")
 
-    company_inserted = insert_company(connection, name=company.name, email=company.email, state=company.state, town=company.town, street=company.street, cislo_popisne=company.cislo_popisne, psc=company.psc, phone=company.phone, ic=company.ic, dic=company.dic, executive=company.executive, note=company.note)
+    company_inserted = insert_company(connection, name=company.name, email=company.email, state=company.state,
+                                      town=company.town, street=company.street, cislo_popisne=company.cislo_popisne,
+                                      psc=company.psc, phone=company.phone, ic=company.ic, dic=company.dic,
+                                      executive=company.executive, note=company.note)
     close_connection(connection)
 
     if not company_inserted:
@@ -633,7 +655,7 @@ async def create_company(company: Company, current_user: User = Depends(get_curr
 
 
 @app.post("/editCompany")
-async def edit_company(id: int, company: Company, current_user: User = Depends(get_current_active_user)):
+async def edit_company(identificator: int, company: Company, current_user: User = Depends(get_current_active_user)):
     connection = estabilish_connection(database)
 
     for attribute in company:
@@ -642,23 +664,26 @@ async def edit_company(id: int, company: Company, current_user: User = Depends(g
 
     if company.email is None or company.name is None:
         close_connection(connection)
-        return HTTPException(status_code=status.HTTP_206_PARTIAL_CONTENT, detail="Some fields that are meant to be filled are empty!")
+        return HTTPException(status_code=status.HTTP_206_PARTIAL_CONTENT,
+                             detail="Some fields that are meant to be filled are empty!")
 
     cursor = connection.cursor()
-    companyExisting = company_exists(cursor, company.email)
+    company_existing = company_exists(cursor, company.email)
 
-    if companyExisting and companyExisting[0] != id:
+    if company_existing and company_existing[0] != identificator:
         cursor.close()
         close_connection(connection)
         return HTTPException(status_code=status.HTTP_304_NOT_MODIFIED, detail="Company with this name already exists")
 
     cursor.close()
 
-    result = edit_comp(connection, id=id, name=company.name, state=company.state, town=company.town, street=company.street, cisloPopisne=company.cislo_popisne, psc=company.psc, phone=company.phone, email=company.email, ic=company.ic, dic=company.dic, executive=company.executive, note=company.note)
+    edit_comp(connection, identificator=identificator, name=company.name, state=company.state, town=company.town,
+              street=company.street, cislo_popisne=company.cislo_popisne, psc=company.psc, phone=company.phone,
+              email=company.email, ic=company.ic, dic=company.dic, executive=company.executive, note=company.note)
 
     close_connection(connection)
 
-    return result
+    return
 
 
 @app.get("/users")
@@ -671,23 +696,23 @@ async def get_users(current_user: User = Depends(get_current_active_user)):
 
 
 @app.delete("/deleteUser")
-async def delete_user_account(id: int, current_user: User = Depends(get_current_active_user)):
+async def delete_user_account(identificator: int, current_user: User = Depends(get_current_active_user)):
     connection = estabilish_connection(database)
-    result = delete_account(connection, id)
+    delete_account(connection, identificator)
     close_connection(connection)
 
-    return result
+    return
 
 
 @app.delete("/deleteUsers")
 async def delete_users_accounts(ids: list[int], current_user: User = Depends(get_current_active_user)):
-    result = delete_accounts(ids)
+    delete_accounts(ids)
 
-    return result
+    return
 
 
 @app.post("/editUser")
-async def edit_user_account(id: int, usr: UserUpdate, current_user: User = Depends(get_current_active_user)):
+async def edit_user_account(identificator: int, usr: UserUpdate, current_user: User = Depends(get_current_active_user)):
     connection = estabilish_connection(database)
     if usr.phone == '':
         usr.phone = None
@@ -697,23 +722,26 @@ async def edit_user_account(id: int, usr: UserUpdate, current_user: User = Depen
         usr.company_id = None
     if usr.email == '' or usr.first_name == '' or usr.last_name == '':
         close_connection(connection)
-        return HTTPException(status_code=status.HTTP_206_PARTIAL_CONTENT, detail="Some fields that are meant to be filled are empty!")
+        return HTTPException(status_code=status.HTTP_206_PARTIAL_CONTENT,
+                             detail="Some fields that are meant to be filled are empty!")
 
     cursor = connection.cursor()
     user_w_email = user_exists(cursor, usr.email)
 
-    if user_w_email and user_w_email[0] != id:
+    if user_w_email and user_w_email[0] != identificator:
         cursor.close()
         close_connection(connection)
         return HTTPException(status_code=status.HTTP_304_NOT_MODIFIED, detail="Account with this email already exists!")
 
     cursor.close()
 
-    result = edit_account(connection, id=id, email=usr.email, first_name=usr.first_name, last_name=usr.last_name, username=usr.username, phone=usr.phone, password=usr.password, company_id=usr.company_id)
+    edit_account(connection, identificator=identificator, email=usr.email, first_name=usr.first_name,
+                 last_name=usr.last_name, username=usr.username, phone=usr.phone, password=usr.password,
+                 company_id=usr.company_id)
 
     close_connection(connection)
 
-    return result
+    return
 
 
 if __name__ == "__main__":
