@@ -19,6 +19,13 @@ class TokenData(BaseModel):
     email: str or None = None
 
 
+class Tool(BaseModel):
+    name: str
+    price: float or None = None
+    discount: float or None = None
+    note: str or None = None
+
+
 class SharpeningCompany(BaseModel):
     name: str
     note: str or None = None
@@ -107,6 +114,17 @@ def sharpening_company_exists(cursor, name):
     return
 
 
+def tool_exists(cursor, name):
+    select_query = "SELECT * FROM tools WHERE name = %s"
+    cursor.execute(select_query, (name,))
+    existing_tool = cursor.fetchone()
+
+    if existing_tool:
+        return existing_tool
+
+    return
+
+
 def company_exists(cursor, name):
     select_query = "SELECT * FROM companies WHERE name = %s"
     cursor.execute(select_query, (name,))
@@ -143,6 +161,23 @@ def insert_company(connection, name, email, state=None, town=None, street=None, 
         insert_query = ("INSERT INTO companies (name, state, town, street, cislo_popisne, psc, phone, email, ic, dic,"
                         "executive, note) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)")
         data_to_insert = (name, state, town, street, cislo_popisne, psc, phone, email, ic, dic, executive, note)
+        cursor.execute(insert_query, data_to_insert)
+        connection.commit()
+        cursor.close()
+
+        return True
+
+    cursor.close()
+
+    return False
+
+
+def insert_tool(connection, name, price=None, discount=None, note=None):
+    cursor = connection.cursor()
+
+    if not tool_exists(cursor, name):
+        insert_query = "INSERT INTO tools (name, price, discount, note) VALUES (%s, %s, %s, %s)"
+        data_to_insert = (name, price, discount, note)
         cursor.execute(insert_query, data_to_insert)
         connection.commit()
         cursor.close()
@@ -285,6 +320,27 @@ def get_all_companies(connection):
     return result
 
 
+def get_all_tools(connection):
+    cursor = connection.cursor()
+    cursor.execute('SELECT * FROM tools')
+    records = cursor.fetchall()
+    cursor.close()
+
+    result = []
+    for record in records:
+        result.append(
+            {
+                "id": record[0],
+                "name": record[1],
+                "price": record[2],
+                "discount": record[3],
+                "note": record[4],
+            }
+        )
+
+    return result
+
+
 def get_all_accounts(connection):
     cursor = connection.cursor()
     cursor.execute('SELECT * FROM accounts')
@@ -353,6 +409,43 @@ def delete_comps(ids):
         delete_comp(connection, identificator)
 
     close_connection(connection)
+
+    return
+
+
+def del_tool(connection, identificator):
+    cursor = connection.cursor()
+    cursor.execute(f'DELETE FROM tools WHERE id = {identificator}')
+    connection.commit()
+    cursor.close()
+
+    return
+
+
+def del_tools(ids):
+    connection = estabilish_connection(database)
+
+    for identificator in ids:
+        del_tool(connection, identificator)
+
+    close_connection(connection)
+
+    return
+
+
+def edit_tool(connection, identificator, name, price=None, discount=None, note=None):
+    cursor = connection.cursor()
+
+    sql_query = """
+               UPDATE tools
+               SET name = %s, price = %s, discount = %s, note = %s
+               WHERE id = %s
+           """
+
+    cursor.execute(sql_query, (name, price, discount, note, identificator))
+
+    connection.commit()
+    cursor.close()
 
     return
 
@@ -738,6 +831,99 @@ async def edit_user_account(identificator: int, usr: UserUpdate, current_user: U
     edit_account(connection, identificator=identificator, email=usr.email, first_name=usr.first_name,
                  last_name=usr.last_name, username=usr.username, phone=usr.phone, password=usr.password,
                  company_id=usr.company_id)
+
+    close_connection(connection)
+
+    return
+
+
+@app.post("/createTool")
+async def create_tool(tool: Tool, current_user: User = Depends(get_current_active_user)):
+    connection = estabilish_connection(database)
+
+    if not connection:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Connecting to db failed...")
+
+    for attribute in tool:
+        if attribute[1] == '':
+            setattr(tool, attribute[0], None)
+
+    if tool.discount == -1:
+        tool.discount = None
+    if tool.price == -1:
+        tool.price = None
+
+    if tool.name is None or (tool.price is None and tool.discount is not None):
+        close_connection(connection)
+        return HTTPException(status_code=status.HTTP_206_PARTIAL_CONTENT,
+                             detail="Some fields that are meant to be filled are empty!")
+
+    tool_inserted = insert_tool(connection, name=tool.name, price=tool.price, discount=tool.discount, note=tool.note)
+    close_connection(connection)
+
+    if not tool_inserted:
+        return 'Tool already exists!'
+
+    return 'Tool added successfully'
+
+
+@app.get("/tools")
+async def get_tools(current_user: User = Depends(get_current_active_user)):
+    connection = estabilish_connection(database)
+    result = get_all_tools(connection)
+    close_connection(connection)
+
+    return result
+
+
+@app.delete("/deleteTool")
+async def delete_tool(identificator: int, current_user: User = Depends(get_current_active_user)):
+    connection = estabilish_connection(database)
+    del_tool(connection, identificator)
+    close_connection(connection)
+
+    return
+
+
+@app.delete("/deleteTools")
+async def delete_tools(ids: list[int], current_user: User = Depends(get_current_active_user)):
+    del_tools(ids)
+
+    return
+
+
+@app.post("/editTool")
+async def edit_given_tool(identificator: int, tool: Tool, current_user: User = Depends(get_current_active_user)):
+    connection = estabilish_connection(database)
+
+    if tool.note == '':
+        tool.note = None
+
+    if tool.price == -1:
+        tool.price = None
+        tool.discount = None
+
+    if tool.discount == -1:
+        tool.discount = None
+
+    if tool.name == '' or (tool.price is None and tool.discount is not None):
+        close_connection(connection)
+        return HTTPException(status_code=status.HTTP_206_PARTIAL_CONTENT,
+                             detail="Some fields that are meant to be filled are empty!")
+
+    cursor = connection.cursor()
+    tool_db = tool_exists(cursor, tool.name)
+
+    if tool_db and tool_db[0] != identificator:
+        cursor.close()
+        close_connection(connection)
+        return HTTPException(status_code=status.HTTP_304_NOT_MODIFIED,
+                             detail="Tool with this name already exists")
+
+    cursor.close()
+
+    edit_tool(connection, identificator=identificator, name=tool.name, price=tool.price, discount=tool.discount,
+              note=tool.note)
 
     close_connection(connection)
 
