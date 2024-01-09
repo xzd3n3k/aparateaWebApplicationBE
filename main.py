@@ -99,11 +99,12 @@ def close_connection(connection):
     connection.close()
 
 
-def insert_order(connection, sharpening_id, customer_id, tool_id, count):
+def insert_order(connection, sharpening_id, customer_id, tool_id, count, date, time, state):
     cursor = connection.cursor()
 
-    insert_query = "INSERT INTO orders (sharpening_company, customer, tool, count) VALUES (%s, %s, %s, %s)"
-    data_to_insert = (sharpening_id, customer_id, tool_id, count)
+    insert_query = ("INSERT INTO orders (sharpening_company, customer, tool, count, datum, cas, stav)"
+                    "VALUES (%s, %s, %s, %s, %s, %s, %s)")
+    data_to_insert = (sharpening_id, customer_id, tool_id, count, date, time, state)
     cursor.execute(insert_query, data_to_insert)
     connection.commit()
     cursor.close()
@@ -125,7 +126,10 @@ def get_all_orders(connection):
                 "sharpening_id": record[1],
                 "customer_id": record[2],
                 "tool_id": record[3],
-                "count": record[4]
+                "count": record[4],
+                "date": record[5],
+                "time": record[6],
+                "status": record[7]
             }
         )
 
@@ -978,7 +982,9 @@ async def create_order(order: Order, current_user: User = Depends(get_current_ac
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Connecting to db failed...")
 
     insert_order(connection=connection, sharpening_id=order.sharpening_company_id, customer_id=order.customer_id,
-                 tool_id=order.tool_id, count=order.count)
+                 tool_id=order.tool_id, count=order.count,
+                 date=f'{datetime.now().day}.{datetime.now().month}.{datetime.now().year}',
+                 time=f'{datetime.now().hour}:{datetime.now().minute}', state="zadáno")
 
     close_connection(connection)
 
