@@ -19,6 +19,13 @@ class TokenData(BaseModel):
     email: str or None = None
 
 
+class Order(BaseModel):
+    sharpening_company_id: int
+    customer_id: int
+    tool_id: int
+    count: int
+
+
 class Tool(BaseModel):
     name: str
     price: float or None = None
@@ -90,6 +97,39 @@ def estabilish_connection(db_name):
 def close_connection(connection):
     connection.disconnect()
     connection.close()
+
+
+def insert_order(connection, sharpening_id, customer_id, tool_id, count):
+    cursor = connection.cursor()
+
+    insert_query = "INSERT INTO orders (sharpening_company, customer, tool, count) VALUES (%s, %s, %s, %s)"
+    data_to_insert = (sharpening_id, customer_id, tool_id, count)
+    cursor.execute(insert_query, data_to_insert)
+    connection.commit()
+    cursor.close()
+
+    return True
+
+
+def get_all_orders(connection):
+    cursor = connection.cursor()
+    cursor.execute('SELECT * FROM orders')
+    records = cursor.fetchall()
+    cursor.close()
+
+    result = []
+    for record in records:
+        result.append(
+            {
+                "id": record[0],
+                "sharpening_id": record[1],
+                "customer_id": record[2],
+                "tool_id": record[3],
+                "count": record[4]
+            }
+        )
+
+    return result
 
 
 def user_exists(cursor, email):
@@ -928,6 +968,30 @@ async def edit_given_tool(identificator: int, tool: Tool, current_user: User = D
     close_connection(connection)
 
     return
+
+
+@app.post("/createOrder")
+async def create_order(order: Order, current_user: User = Depends(get_current_active_user)):
+    connection = estabilish_connection(database)
+
+    if not connection:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Connecting to db failed...")
+
+    insert_order(connection=connection, sharpening_id=order.sharpening_company_id, customer_id=order.customer_id,
+                 tool_id=order.tool_id, count=order.count)
+
+    close_connection(connection)
+
+    return status.HTTP_201_CREATED
+
+
+@app.get("/orders")
+async def get_orders(current_user: User = Depends(get_current_active_user)):
+    connection = estabilish_connection(database)
+    result = get_all_orders(connection)
+    close_connection(connection)
+
+    return result
 
 
 if __name__ == "__main__":
