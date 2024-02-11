@@ -24,6 +24,13 @@ class Order(BaseModel):
     customer_id: int
     tool_id: int
     count: int
+    note: str or None = None
+
+
+class StateChange(BaseModel):
+    sharpening_company_id: int
+    new_state: str
+    old_state: str
 
 
 class Tool(BaseModel):
@@ -99,12 +106,12 @@ def close_connection(connection):
     connection.close()
 
 
-def insert_order(connection, sharpening_id, customer_id, tool_id, count, date, time, state):
+def insert_order(connection, sharpening_id, customer_id, tool_id, count, date, time, state, note):
     cursor = connection.cursor()
 
-    insert_query = ("INSERT INTO orders (sharpening_company, customer, tool, count, datum, cas, stav)"
-                    "VALUES (%s, %s, %s, %s, %s, %s, %s)")
-    data_to_insert = (sharpening_id, customer_id, tool_id, count, date, time, state)
+    insert_query = ("INSERT INTO orders (sharpening_company, customer, tool, count, datum, cas, stav, note)"
+                    "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)")
+    data_to_insert = (sharpening_id, customer_id, tool_id, count, date, time, state, note)
     cursor.execute(insert_query, data_to_insert)
     connection.commit()
     cursor.close()
@@ -129,7 +136,8 @@ def get_all_orders(connection):
                 "count": record[4],
                 "date": record[5],
                 "time": record[6],
-                "status": record[7]
+                "status": record[7],
+                "note": record[8]
             }
         )
 
@@ -315,6 +323,23 @@ def edit_sharpening_comp(connection, identificator, name, note=None):
     return
 
 
+# def edit_state_of_orders(connection, sharpeningCompId, newState):
+#     cursor = connection.cursor()
+#
+#     sql_query = """
+#                UPDATE orders
+#                SET stav = %s
+#                WHERE sharpening_company = %s
+#            """
+#
+#     cursor.execute(sql_query, (name, note, identificator))
+#
+#     connection.commit()
+#     cursor.close()
+#
+#     return
+
+
 def edit_comp(connection, identificator, name, state=None, town=None, street=None, cislo_popisne=None, psc=None,
               phone=None, email=None, ic=None, dic=None, executive=None, note=None):
     cursor = connection.cursor()
@@ -408,6 +433,23 @@ def get_all_accounts(connection):
     return result
 
 
+def edit_orders_state_function(connection, sharpening_company_identificator, new_state, old_state):
+    cursor = connection.cursor()
+
+    sql_query = """
+               UPDATE orders
+               SET stav = %s
+               WHERE sharpening_company = %s AND stav = %s
+           """
+
+    cursor.execute(sql_query, (new_state, sharpening_company_identificator, old_state))
+
+    connection.commit()
+    cursor.close()
+
+    return
+
+
 def delete_account(connection, identificator):
     cursor = connection.cursor()
     cursor.execute(f'DELETE FROM accounts WHERE id = {identificator}')
@@ -451,6 +493,26 @@ def delete_comps(ids):
 
     for identificator in ids:
         delete_comp(connection, identificator)
+
+    close_connection(connection)
+
+    return
+
+
+def del_order(connection, identificator):
+    cursor = connection.cursor()
+    cursor.execute(f'DELETE FROM orders WHERE id = {identificator}')
+    connection.commit()
+    cursor.close()
+
+    return
+
+
+def del_orders(ids):
+    connection = estabilish_connection(database)
+
+    for identificator in ids:
+        del_order(connection, identificator)
 
     close_connection(connection)
 
@@ -984,7 +1046,7 @@ async def create_order(order: Order, current_user: User = Depends(get_current_ac
     insert_order(connection=connection, sharpening_id=order.sharpening_company_id, customer_id=order.customer_id,
                  tool_id=order.tool_id, count=order.count,
                  date=f'{datetime.now().day}.{datetime.now().month}.{datetime.now().year}',
-                 time=f'{datetime.now().hour}:{datetime.now().minute}', state="zadáno")
+                 time=f'{datetime.now().hour}:{datetime.now().minute}', state="zadáno", note=order.note)
 
     close_connection(connection)
 
@@ -998,6 +1060,31 @@ async def get_orders(current_user: User = Depends(get_current_active_user)):
     close_connection(connection)
 
     return result
+
+
+@app.post("/editOrdersState")
+async def edit_orders_state(state_change: StateChange, current_user: User = Depends(get_current_active_user)):
+    connection = estabilish_connection(database)
+    edit_orders_state_function(connection, state_change.sharpening_company_id, state_change.new_state, state_change.old_state)
+    close_connection(connection)
+
+    return status.HTTP_201_CREATED
+
+
+@app.delete("/deleteOrder")
+async def delete_order(identificator: int, current_user: User = Depends(get_current_active_user)):
+    connection = estabilish_connection(database)
+    del_order(connection, identificator)
+    close_connection(connection)
+
+    return
+
+
+@app.delete("/deleteOrders")
+async def delete_orders(orders_ids, current_user: User = Depends(get_current_active_user)):
+    del_orders(orders_ids)
+
+    return
 
 
 if __name__ == "__main__":
