@@ -287,6 +287,40 @@ def get_company_by_id(connection, identificator):
     return None
 
 
+def get_sharpening_by_id(connection, identificator):
+    cursor = connection.cursor()
+    cursor.execute('SELECT * FROM sharpeningCompanies WHERE id = %s', (identificator, ))
+    record = cursor.fetchone()
+    cursor.close()
+
+    if record:
+        return {
+                "id": record[0],
+                "name": record[1],
+                "note": record[2]
+            }
+
+    return None
+
+
+def get_tool_by_id(connection, identificator):
+    cursor = connection.cursor()
+    cursor.execute('SELECT * FROM tools WHERE id = %s', (identificator,))
+    record = cursor.fetchone()
+    cursor.close()
+
+    if record:
+        return {
+            "id": record[0],
+            "name": record[1],
+            "price": record[2],
+            "discount": record[3],
+            "note": record[4],
+            }
+
+    return None
+
+
 def get_all_sharpening_companies(connection):
     cursor = connection.cursor()
     cursor.execute('SELECT * FROM sharpeningCompanies')
@@ -738,7 +772,7 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect credentials",
                             headers={"WWW-Authenticate": "Bearer"})
 
-    access_token_expires = timedelta(minutes=30)
+    access_token_expires = timedelta(hours=8)
     access_token = create_access_token(data={"sub": user_authenticated.email}, expires_delta=access_token_expires)
 
     return {"access_token": access_token, "token_type": "bearer", "expires": access_token_expires+datetime.utcnow()}
@@ -748,6 +782,15 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
 async def get_sharpening_companies(current_user: User = Depends(get_current_active_user)):
     connection = estabilish_connection(database)
     result = get_all_sharpening_companies(connection)
+    close_connection(connection)
+
+    return result
+
+
+@app.post("/sharpeningCompany")
+async def get_sharpening_company(identificator: int, current_user: User = Depends(get_current_active_user)):
+    connection = estabilish_connection(database)
+    result = get_sharpening_by_id(connection, identificator)
     close_connection(connection)
 
     return result
@@ -980,6 +1023,25 @@ async def get_tools(current_user: User = Depends(get_current_active_user)):
     close_connection(connection)
 
     return result
+
+
+@app.post("/tool")
+async def get_tool(identificator: int, current_user: User = Depends(get_current_active_user)):
+    connection = estabilish_connection(database)
+    result = get_tool_by_id(connection, identificator)
+    close_connection(connection)
+
+    return result
+
+
+@app.post("/company")
+async def get_company(identificator: int, current_user: User = Depends(get_current_active_user)):
+    connection = estabilish_connection(database)
+    result = get_company_by_id(connection, identificator)
+    close_connection(connection)
+
+    return result
+
 
 
 @app.delete("/deleteTool")
